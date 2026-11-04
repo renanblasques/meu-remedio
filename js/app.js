@@ -138,6 +138,7 @@
     updateSimulation();
     if (!store.state) {
       app.innerHTML = `<main class="loading"><h1 tabindex="-1">Dados indisponíveis</h1><p>${u.escape(store.error)}</p><p>Use “Reiniciar demonstração” no painel de simulação.</p></main>`;
+      slideTabIndicator();
       return;
     }
     let route = normalize(parseRoute());
@@ -192,7 +193,31 @@
       }
     }
     document.title = `${app.querySelector('h1')?.textContent || 'Meu Remédio'} · Meu Remédio`;
+    slideTabIndicator();
     alertIfNeeded();
+  }
+  function slideTabIndicator() {
+    const tabs = app.querySelector('.tabs');
+    if (!tabs) {
+      slideTabIndicator.from = undefined;
+      return;
+    }
+    const index = [...tabs.querySelectorAll('.nav-item')].findIndex(
+      (item) => item.getAttribute('aria-current') === 'page',
+    );
+    if (index < 0) return;
+    const from = slideTabIndicator.from;
+    slideTabIndicator.from = index;
+    const indicator = tabs.querySelector('.tab-indicator');
+    if (!indicator || from === undefined || from === index) {
+      tabs.style.setProperty('--tab-index', String(index));
+      return;
+    }
+    tabs.style.setProperty('--tab-index', String(from));
+    indicator.style.transition = 'none';
+    indicator.getBoundingClientRect();
+    indicator.style.transition = '';
+    tabs.style.setProperty('--tab-index', String(index));
   }
   function alertIfNeeded() {
     if (store.state?.role !== 'patient' || document.visibilityState !== 'visible') return;

@@ -34,12 +34,9 @@
     const content = `<section class="card patient-summary"><div class="row"><div class="patient-avatar">${icon('person-outline', 30)}</div><div class="stack grow" style="gap:2px"><p class="eyebrow">ACOMPANHANDO</p><h2>${e(state.patient.name)}</h2><p class="caption">${state.patient.age} anos · cuidado compartilhado</p></div></div>
       <div class="row between" style="align-items:flex-end"><div><p class="summary-count">${done}<small> / ${doses.length}</small></p><p class="muted">doses registradas hoje</p></div>${icon('leaf-outline', 45, '#7C9C69')}</div>
       <div class="progress" role="img" aria-label="${done} de ${doses.length} doses registradas">${doses.map((dose) => `<span style="background:${STATUSES[doseStatus(dose, state.now)].color}"></span>`).join('')}</div><p class="primary-ink">${attention ? `${attention} ${attention === 1 ? 'dose precisa' : 'doses precisam'} de atenção agora.` : done === doses.length && doses.length ? 'Todas as doses do dia foram registradas.' : 'As próximas doses estão programadas.'}</p></section>
-      <a class="demo-link" href="#/caregiver/more" aria-label="Abrir controles da demonstração"><span class="row">${icon('play-circle-outline')}<span class="label">Demonstração · ${clockLabel(state.now)}</span></span>${icon('options-outline', 20)}</a>
       <div class="stack gap-4"><h2>O dia de Dona Benedita</h2><p class="muted capitalize">${weekdayLabel(day)}, ${dateLabel(day, true)}</p></div>
       ${doses.map((dose) => doseCard(dose, context)).join('')}${!doses.length ? empty('Nenhuma dose para hoje', 'Cadastre um medicamento para organizar as próximas doses.', 'medical-outline') : ''}${button('Adicionar medicamento', 'new-medication', { icon: 'add-outline', variant: 'secondary' })}`;
-    return screen(context, `Olá, ${caregiver.name}`, content, {
-      subtitle: 'Cuidar fica mais leve quando é junto.',
-    });
+    return screen(context, `Olá, ${caregiver.name}`, content);
   }
   function medications(context) {
     const list = context.state.medications.filter((item) => item.active);
@@ -62,7 +59,6 @@
         )
         .join('')}
       ${!list.length ? empty('Comece por uma foto', 'Adicione um medicamento e defina seus horários.', 'camera-outline') : ''}`,
-      { subtitle: 'Fotos e horários para uma rotina mais fácil.' },
     );
   }
   function history(context) {
@@ -84,7 +80,6 @@
       `<section class="card"><div class="row between"><button class="icon-button" type="button" data-action="history-prev" aria-label="Dia anterior" ${selected <= first ? 'disabled' : ''}>${icon('chevron-back')}</button><div class="stack grow center" style="gap:0"><h2>${selected === today ? 'Hoje' : dateLabel(selected, true)}</h2><p class="caption capitalize">${weekdayLabel(selected)} · ${dateLabel(selected)}</p></div><button class="icon-button" type="button" data-action="history-next" aria-label="Próximo dia" ${selected >= today ? 'disabled' : ''}>${icon('chevron-forward')}</button></div><p class="primary-ink center">${all.filter((item) => item.confirmedAt).length} de ${all.length} doses registradas</p></section>
       <div class="chips" role="group" aria-label="Filtrar histórico por status">${filters.map(([key, label]) => `<button type="button" class="chip" data-action="history-filter" data-id="${key || ''}" aria-label="Filtrar: ${label}" aria-pressed="${context.history.filter === key}">${label}</button>`).join('')}</div>
       ${doses.map((dose) => doseCard(dose, context)).join('')}${!doses.length ? empty('Nenhum registro neste filtro', 'Escolha outro status ou consulte um dia diferente.', 'calendar-outline') : ''}`,
-      { subtitle: 'Cada registro conta uma parte do cuidado.' },
     );
   }
   function events(context) {
@@ -103,7 +98,6 @@
       `<p class="muted">${unread ? `${unread} ${unread === 1 ? 'aviso novo' : 'avisos novos'}` : 'Todos os avisos foram lidos.'}</p>${unread ? button('Marcar todos como lidos', 'read-events', { icon: 'checkmark-done-outline', variant: 'secondary' }) : ''}
       ${events.map((event) => `<article class="card event-card ${!event.read ? 'unread' : ''}"><div class="row start"><div class="event-icon" style="${event.kind === 'help' ? 'background:var(--lavender);color:var(--purple)' : event.kind === 'missed' ? 'background:var(--rose);color:var(--danger)' : ''}">${icon(icons[event.kind])}</div><div class="stack grow" style="gap:7px"><h3>${e(event.title)}</h3><p>${e(event.detail)}</p><p class="caption">${dateLabel(dayKey(event.at))} · ${clockLabel(event.at)}${!event.read ? ' · Novo' : ''}</p></div></div></article>`).join('')}
       ${!events.length ? empty('Tudo tranquilo por aqui', 'Os registros de doses e pedidos de ajuda aparecerão aqui.', 'notifications-outline') : ''}`,
-      { subtitle: 'O cuidado compartilhado, em um só lugar.' },
     );
   }
   function care(context) {
@@ -121,10 +115,7 @@
         )
         .join('')}</div>
       <form class="card" id="caregiver-form" novalidate><h2>Adicionar cuidador</h2>${field('Nome do cuidador', 'caregiver-name', caregiverDraft.name, { placeholder: 'Ex.: Ana', maxLength: 60 })}${field('Vínculo com o idoso', 'caregiver-relationship', caregiverDraft.relationship, { placeholder: 'Ex.: Filha, cuidadora', maxLength: 50 })}${context.caregiverError ? notice(context.caregiverError, 'error') : ''}${button('Adicionar ao grupo', 'add-caregiver', { icon: 'person-add-outline' })}</form>
-      <div class="divider"></div><section class="card demo-card"><div class="row purple-ink">${icon('play-circle-outline', 28)}<h2>Demonstração</h2></div><p>Avance o relógio para apresentar os alertas e os estados das doses.</p><div class="stack demo-clock"><strong>${clockLabel(state.now)}</strong><p class="muted">${dateLabel(dayKey(state.now), true)}</p><p class="caption">Relógio simulado · avanço manual</p></div>
-      ${button('Ir ao próximo horário', 'next-time', { icon: 'play-forward-outline' })}<div class="row"><div class="grow">${button('+15 minutos', 'advance', { id: '15', variant: 'secondary' })}</div><div class="grow">${button('+1 minuto', 'advance', { id: '1', variant: 'secondary' })}</div></div>${button('Avançar para amanhã, 08:00', 'next-day', { icon: 'sunny-outline', variant: 'secondary' })}${button('Reiniciar demonstração', 'reset', { icon: 'refresh-outline', variant: 'quiet' })}</section>
       ${notice('Os perfis compartilham os dados neste navegador. Alertas e ajuda são demonstrados dentro do app; não há comunicação com outros celulares.')}<p class="caption center">Meu Remédio · Protótipo de IHC e Experiência do Usuário</p>`,
-      { subtitle: 'Pessoas próximas, uma rotina compartilhada.' },
     );
   }
   Object.assign(root.MeuRemedio.screens, { today, medications, history, events, care });
