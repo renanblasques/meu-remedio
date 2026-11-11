@@ -1,7 +1,7 @@
 /** Integrações do navegador: voz, sons e leitura de fotografias. */
 (function (root) {
   'use strict';
-  const { PERIODS, clockLabel } = root.MeuRemedio.domain;
+  const { PERIODS, clockLabel, currentDose, doseStatus, dosesForDay } = root.MeuRemedio.domain;
   const samples = {
     morning: 'assets/images/medicine-morning.jpg',
     lunch: 'assets/images/medicine-lunch.jpg',
@@ -15,48 +15,85 @@
         }
       : {};
   let pendingSound = null;
+  let activeSound = null;
+  let narration = null;
   let notify = () => {};
   function stopSounds() {
+    activeSound = null;
+    pendingSound = null;
     Object.values(sounds).forEach((audio) => {
+      audio.onended = null;
+      audio.onerror = null;
       audio.pause();
       audio.currentTime = 0;
     });
   }
+  function stopSpeech(automaticOnly = false) {
+    if (automaticOnly && !narration?.automatic) return;
+    narration = null;
+    root.speechSynthesis?.cancel();
+    if (automaticOnly) unlock();
+  }
   function play(name) {
     const sound = sounds[name];
     if (!sound) return;
+    if (narration?.utterance) {
+      pendingSound = name;
+      return;
+    }
     stopSounds();
+    const playback = { sound };
+    activeSound = playback;
+    const finish = () => {
+      if (activeSound !== playback) return;
+      activeSound = null;
+      sound.onended = null;
+      sound.onerror = null;
+      startSpeech();
+    };
+    sound.onended = finish;
+    sound.onerror = () => {
+      if (activeSound !== playback) return;
+      notify('Não foi possível reproduzir o som. Verifique o volume do navegador.');
+      finish();
+    };
     sound
       .play()
-      .then(() => {
-        pendingSound = null;
-      })
       .catch((error) => {
+        if (activeSound !== playback) return;
+        activeSound = null;
+        sound.onended = null;
+        sound.onerror = null;
         if (error.name === 'NotAllowedError') {
           pendingSound = name;
           notify('Toque na tela ou use Ouvir para ativar o som.');
-        } else if (error.name !== 'AbortError')
-          notify('Não foi possível reproduzir o som. Verifique o volume do navegador.');
+        } else {
+          if (error.name !== 'AbortError')
+            notify('Não foi possível reproduzir o som. Verifique o volume do navegador.');
+          startSpeech();
+        }
       });
   }
   function unlock() {
-    if (pendingSound) {
+    if (narration) narration.blocked = false;
+    if (pendingSound && !narration?.utterance) {
       const name = pendingSound;
       pendingSound = null;
       play(name);
-    }
+    } else startSpeech();
   }
-  function speak(text) {
-    stopSounds();
-    pendingSound = null;
+  function startSpeech() {
+    const request = narration;
+    if (!request || request.utterance || request.blocked || activeSound || pendingSound) return;
     if (!root.speechSynthesis || !root.SpeechSynthesisUtterance) {
+      narration = null;
       notify(
         'Áudio indisponível neste navegador. Abra o protótipo no Chrome ou Edge com uma voz em português instalada.',
       );
       return;
     }
-    root.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance(text);
+    const speech = new root.SpeechSynthesisUtterance(request.text);
+    request.utterance = speech;
     speech.lang = 'pt-BR';
     speech.rate = 0.82;
     const voices = root.speechSynthesis.getVoices();
@@ -64,13 +101,67 @@
       voices.find((voice) => voice.lang.replace('_', '-').toLowerCase() === 'pt-br') ||
       voices.find((voice) => voice.lang.toLowerCase().startsWith('pt')) ||
       null;
+    speech.onstart = () => {
+      if (narration === request) notify(null);
+    };
+    speech.onend = () => {
+      if (narration !== request || request.utterance !== speech) return;
+      narration = null;
+      unlock();
+    };
     speech.onerror = (event) => {
-      if (!['canceled', 'interrupted'].includes(event.error))
-        notify(
-          'Não foi possível ler em voz alta. Verifique o volume e a voz em português do navegador.',
-        );
+      if (narration !== request || request.utterance !== speech) return;
+      request.utterance = null;
+      if (event.error === 'not-allowed') {
+        request.blocked = true;
+        notify('Toque na tela ou use Ouvir para ativar o som.');
+      } else {
+        narration = null;
+        if (!['canceled', 'interrupted'].includes(event.error))
+          notify(
+            'Não foi possível ler em voz alta. Verifique o volume e a voz em português do navegador.',
+          );
+        unlock();
+      }
     };
     root.speechSynthesis.speak(speech);
+  }
+  function speak(text, { automatic = false } = {}) {
+    stopSpeech();
+    if (!automatic) stopSounds();
+    if (!text) return;
+    narration = { text, automatic, utterance: null, blocked: false };
+    startSpeech();
+  }
+  function patientSpeech({ state, route, helpSent = false }) {
+    switch (route.path) {
+      case '/patient': {
+        const dose = currentDose(state);
+        return dose
+          ? doseSpeech(dose, doseStatus(dose, state.now))
+          : 'Tudo em dia. As doses de hoje já estão registradas.';
+      }
+      case '/patient/success': {
+        const dose = state.doses.find(
+          (item) => item.id === route.params.get('dose') && item.confirmedAt,
+        );
+        return dose
+          ? 'Esta dose já está registrada. Seu cuidador pode acompanhar.'
+          : 'Dose não encontrada. Confira seu dia para consultar as doses e seus registros.';
+      }
+      case '/patient/day':
+        return dosesForDay(state).length
+          ? 'Este é o seu dia. Aqui você pode conferir os horários e os registros dos seus remédios. Para ouvir as orientações de cada remédio, toque em Ouvir no cartão dele.'
+          : 'Hoje não há doses cadastradas. Peça ajuda ao cuidador se tiver alguma dúvida.';
+      case '/patient/help': {
+        const caregiver = state.caregivers.find((item) => item.id === state.primaryCaregiverId);
+        return helpSent
+          ? `Seu pedido para ${caregiver.name} foi registrado.`
+          : `Este é ${caregiver.name}, seu cuidador. Toque no botão verde para pedir ajuda.`;
+      }
+      default:
+        return null;
+    }
   }
   function doseSpeech(dose, status) {
     const period = PERIODS.find((item) => item.key === dose.period).label;
@@ -122,6 +213,8 @@
     play,
     unlock,
     speak,
+    stopSpeech,
+    patientSpeech,
     doseSpeech,
     photoUrl,
     readPhoto,

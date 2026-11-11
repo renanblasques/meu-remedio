@@ -13,6 +13,7 @@
   const dialog = document.getElementById('confirmation');
   const seenAlerts = new Set();
   let previousRoute = '',
+    autoAudio = repository.loadAutoAudio(),
     confirmLocked = false,
     dialogCallback = null,
     returnFocus = null;
@@ -44,14 +45,14 @@
       key: location.hash || `#${home()}`,
     };
   }
-  function navigate(path, replace = false) {
+  function navigate(path, replace = false, sound = null) {
     const depth = history.state?.mrDepth || 0;
     history[replace ? 'replaceState' : 'pushState'](
       { mrDepth: replace ? depth : depth + 1, mrRole: store.state?.role },
       '',
       `#${path}`,
     );
-    render(true);
+    render(true, sound);
   }
   function back() {
     if ((history.state?.mrDepth || 0) > 0) history.back();
@@ -62,6 +63,9 @@
   }
   function updateSimulation() {
     const state = store.state;
+    const audioControl = document.getElementById('automatic-audio');
+    audioControl.checked = autoAudio;
+    audioControl.disabled = !state;
     const time = document.getElementById('simulation-time');
     time.textContent = state ? d.clockLabel(state.now) : '--:--';
     time.dateTime = state?.now || '';
@@ -133,10 +137,17 @@
     '/caregiver/more': 'care',
     '/medication': 'medication',
   };
-  function render(focusHeading = false) {
+  function narrateScreen(route) {
+    if (!autoAudio || store.state?.role !== 'patient') return;
+    const text = media.patientSpeech(context(route));
+    if (text) media.speak(text, { automatic: true });
+  }
+  function render(focusHeading = false, sound = null) {
     updateNotices();
     updateSimulation();
     if (!store.state) {
+      media.stopSpeech();
+      media.stopSounds();
       app.innerHTML = `<main class="loading"><h1 tabindex="-1">Dados indisponíveis</h1><p>${u.escape(store.error)}</p><p>Use “Reiniciar demonstração” no painel de simulação.</p></main>`;
       slideTabIndicator();
       return;
@@ -158,6 +169,8 @@
       : null;
     const scroll = !changed ? app.querySelector('.screen-scroll, .profiles')?.scrollTop || 0 : 0;
     if (changed) {
+      media.stopSpeech();
+      media.stopSounds();
       prepareDraft(route);
       ui.patientError = null;
       if (route.path === '/patient/help') ui.helpSent = false;
@@ -194,7 +207,9 @@
     }
     document.title = `${app.querySelector('h1')?.textContent || 'Meu Remédio'} · Meu Remédio`;
     slideTabIndicator();
-    alertIfNeeded();
+    if (sound) media.play(sound);
+    else alertIfNeeded();
+    if (changed) narrateScreen(route);
   }
   function slideTabIndicator() {
     const tabs = app.querySelector('.tabs');
@@ -220,7 +235,12 @@
     tabs.style.setProperty('--tab-index', String(index));
   }
   function alertIfNeeded() {
-    if (store.state?.role !== 'patient' || document.visibilityState !== 'visible') return;
+    if (
+      store.state?.role !== 'patient' ||
+      !parseRoute().path.startsWith('/patient') ||
+      document.visibilityState !== 'visible'
+    )
+      return;
     const dose = d.currentDose(store.state);
     if (!dose) return;
     const status = d.doseStatus(dose, store.state.now);
@@ -412,8 +432,7 @@
           confirmLocked = false;
           render();
         } else {
-          media.play('success');
-          navigate(`/patient/success?dose=${encodeURIComponent(value)}`, true);
+          navigate(`/patient/success?dose=${encodeURIComponent(value)}`, true, 'success');
         }
         break;
       }
@@ -429,11 +448,10 @@
         break;
       case 'request-help': {
         if (ui.helpSent) break;
-        const caregiver = state.caregivers.find((item) => item.id === state.primaryCaregiverId);
         if (!store.dispatch({ type: 'help', id: `help:${id()}` })) {
           ui.helpSent = true;
           render(true);
-          media.speak(`Pedido de ajuda registrado para ${caregiver.name}.`);
+          media.speak(media.patientSpeech(context(parseRoute())));
         }
         break;
       }
@@ -561,20 +579,10 @@
         break;
       }
       case 'speak-success':
-        media.speak('Esta dose já está registrada. Seu cuidador pode acompanhar.');
-        break;
       case 'speak-all-done':
-        media.speak('Tudo em dia. As doses de hoje já estão registradas.');
+      case 'speak-help':
+        media.speak(media.patientSpeech(context(parseRoute())));
         break;
-      case 'speak-help': {
-        const caregiver = state.caregivers.find((item) => item.id === state.primaryCaregiverId);
-        media.speak(
-          ui.helpSent
-            ? `Seu pedido para ${caregiver.name} foi registrado.`
-            : `Este é ${caregiver.name}, seu cuidador. Toque no botão verde para pedir ajuda.`,
-        );
-        break;
-      }
       case 'speak-profiles':
         media.speak(
           'Bem-vindo ao Meu Remédio. Para ver seus remédios, toque no botão verde com a imagem de um idoso. Se você é cuidador, toque no botão roxo com a imagem de uma enfermeira.',
@@ -623,6 +631,13 @@
     }
   });
   document.addEventListener('change', (event) => {
+    if (event.target.id === 'automatic-audio') {
+      autoAudio = event.target.checked;
+      repository.saveAutoAudio(autoAudio);
+      if (autoAudio) narrateScreen(parseRoute());
+      else media.stopSpeech(true);
+      return;
+    }
     if (['camera-file', 'gallery-file'].includes(event.target.id)) void selectPhoto(event.target);
   });
   document.addEventListener('submit', (event) => {

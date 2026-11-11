@@ -100,6 +100,27 @@ body {
 .simulation-actions {
   gap: 10px;
 }
+.simulation-audio-setting {
+  gap: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.simulation-audio {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.simulation-audio input {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  accent-color: var(--purple);
+}
 @media (min-width: 1120px) {
   .prototype-layout {
     grid-template-columns: 320px var(--app-max-width) 320px;

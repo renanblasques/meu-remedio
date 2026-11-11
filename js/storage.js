@@ -2,6 +2,7 @@
 (function (root) {
   'use strict';
   const STATE_KEY = 'meu-remedio:web:state:v1';
+  const AUTO_AUDIO_KEY = 'meu-remedio:web:auto-audio:v1';
   const PHOTO_PREFIX = 'meu-remedio:web:photo:';
   const periods = new Set(['morning', 'lunch', 'afternoon', 'night']);
   const isoDate = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value));
@@ -83,6 +84,20 @@
   function createRepository(storage) {
     const backend = () => (storage === undefined ? root.localStorage : storage);
     return {
+      loadAutoAudio() {
+        try {
+          return backend().getItem(AUTO_AUDIO_KEY) !== 'false';
+        } catch {
+          return true;
+        }
+      },
+      saveAutoAudio(enabled) {
+        try {
+          backend().setItem(AUTO_AUDIO_KEY, String(enabled));
+        } catch {
+          /* A preferência continua disponível em memória enquanto a página estiver aberta. */
+        }
+      },
       load() {
         const raw = backend().getItem(STATE_KEY);
         if (raw === null) return null;
@@ -120,7 +135,7 @@
       },
     };
   }
-  const api = { STATE_KEY, PHOTO_PREFIX, isAppState, createRepository };
+  const api = { STATE_KEY, AUTO_AUDIO_KEY, PHOTO_PREFIX, isAppState, createRepository };
   root.MeuRemedio = root.MeuRemedio || {};
   root.MeuRemedio.storage = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
