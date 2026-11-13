@@ -25,7 +25,6 @@
     caregiverDraft: { name: '', relationship: '' },
     caregiverError: null,
     history: { day: null, filter: null },
-    helpSent: false,
     photoBusy: false,
     mediaMessage: null,
   };
@@ -88,6 +87,15 @@
     ) {
       const path = state.role ? home() : '/profiles';
       history.replaceState({ mrDepth: 0, mrRole: state.role }, '', `#${path}`);
+      return parseRoute();
+    }
+    if (
+      route.path === '/patient/help' &&
+      !state.events.some(
+        (event) => event.kind === 'help' && event.id === route.params.get('request'),
+      )
+    ) {
+      history.replaceState(history.state, '', '#/patient');
       return parseRoute();
     }
     return route;
@@ -173,7 +181,6 @@
       media.stopSounds();
       prepareDraft(route);
       ui.patientError = null;
-      if (route.path === '/patient/help') ui.helpSent = false;
       if (route.path === '/patient') confirmLocked = false;
       if (dialog.open) dialog.close();
     }
@@ -407,11 +414,23 @@
         navigate('/patient', true);
         break;
       case 'day':
+        // A confirmação é transitória: ao voltar de Meu dia, mostrar o próximo remédio.
+        if (parseRoute().path === '/patient/success')
+          history.replaceState(history.state, '', '#/patient');
         navigate('/patient/day');
         break;
-      case 'help':
-        navigate('/patient/help');
+      case 'help': {
+        const dose = d.currentDose(state);
+        const failure = store.dispatch({ type: 'help', id: `help:${id()}`, doseId: dose?.id });
+        if (failure) {
+          ui.patientError = failure;
+          render();
+        } else {
+          const request = d.helpRequest(store.state, dose?.id);
+          navigate(`/patient/help?request=${encodeURIComponent(request.id)}`);
+        }
         break;
+      }
       case 'medications':
         navigate('/caregiver/medications', true);
         break;
@@ -446,15 +465,6 @@
       case 'caregiver-confirm':
         confirmByCaregiver(value);
         break;
-      case 'request-help': {
-        if (ui.helpSent) break;
-        if (!store.dispatch({ type: 'help', id: `help:${id()}` })) {
-          ui.helpSent = true;
-          render(true);
-          media.speak(media.patientSpeech(context(parseRoute())));
-        }
-        break;
-      }
       case 'read-events':
         store.dispatch({ type: 'readEvents' });
         break;
@@ -575,18 +585,13 @@
         break;
       case 'speak-dose': {
         const dose = state.doses.find((item) => item.id === value);
-        if (dose) media.speak(media.doseSpeech(dose, d.doseStatus(dose, state.now)));
+        if (dose)
+          media.speak(media.doseSpeech(dose, d.doseStatus(dose, state.now), !!d.helpRequest(state, dose.id)));
         break;
       }
       case 'speak-success':
       case 'speak-all-done':
-      case 'speak-help':
         media.speak(media.patientSpeech(context(parseRoute())));
-        break;
-      case 'speak-profiles':
-        media.speak(
-          'Bem-vindo ao Meu Remédio. Para ver seus remédios, toque no botão verde com a imagem de um idoso. Se você é cuidador, toque no botão roxo com a imagem de uma enfermeira.',
-        );
         break;
     }
   }
@@ -675,7 +680,10 @@
         event.target.matches('[data-medicine-photo]')
       ) {
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = u.photoFallback(event.target.getAttribute('style') || '');
+        wrapper.innerHTML = u.photoFallback(
+          event.target.getAttribute('style') || '',
+          event.target.className,
+        );
         event.target.replaceWith(wrapper.firstElementChild);
       }
     },

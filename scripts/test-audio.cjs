@@ -79,10 +79,13 @@ test('textos correspondem às telas e validam a confirmação da dose', () => {
   const { state, text, domain, media } = setup();
   const dose = domain.currentDose(state);
   assert.equal(text('/patient'), media.doseSpeech(dose, domain.doseStatus(dose, state.now)));
-  assert.match(text('/patient/day'), /toque em Ouvir no cartão/);
+  assert.match(text('/patient/day'), /Toque em um remédio para ouvir/);
   assert.ok(!text('/patient/day').includes(dose.name));
-  assert.match(text('/patient/help'), /Carlos/);
-  assert.match(text('/patient/help', '', { helpSent: true }), /foi registrado/);
+  assert.equal(text('/patient/help'), null);
+  const sentState = domain.appReducer(state, { type: 'help', id: 'help:test', doseId: dose.id });
+  state.events = sentState.events;
+  assert.match(text('/patient/help', 'request=help:test'), /Carlos.*foi enviado/);
+  assert.match(text('/patient/help', 'request=help:test'), /Entendi/);
   assert.match(text('/patient/success', `dose=${dose.id}`), /não encontrada/);
   dose.confirmedAt = state.now;
   assert.match(text('/patient/success', `dose=${dose.id}`), /já está registrada/);

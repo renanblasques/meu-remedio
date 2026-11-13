@@ -1,7 +1,7 @@
 /** Integrações do navegador: voz, sons e leitura de fotografias. */
 (function (root) {
   'use strict';
-  const { PERIODS, clockLabel, currentDose, doseStatus, dosesForDay } = root.MeuRemedio.domain;
+  const { PERIODS, clockLabel, currentDose, doseStatus, dosesForDay, helpRequest } = root.MeuRemedio.domain;
   const samples = {
     morning: 'assets/images/medicine-morning.jpg',
     lunch: 'assets/images/medicine-lunch.jpg',
@@ -133,42 +133,43 @@
     narration = { text, automatic, utterance: null, blocked: false };
     startSpeech();
   }
-  function patientSpeech({ state, route, helpSent = false }) {
+  function patientSpeech({ state, route }) {
     switch (route.path) {
       case '/patient': {
         const dose = currentDose(state);
         return dose
-          ? doseSpeech(dose, doseStatus(dose, state.now))
+          ? doseSpeech(dose, doseStatus(dose, state.now), !!helpRequest(state, dose.id))
           : 'Tudo em dia. As doses de hoje já estão registradas.';
       }
       case '/patient/success': {
         const dose = state.doses.find(
           (item) => item.id === route.params.get('dose') && item.confirmedAt,
         );
-        return dose
-          ? 'Esta dose já está registrada. Seu cuidador pode acompanhar.'
-          : 'Dose não encontrada. Confira seu dia para consultar as doses e seus registros.';
+        if (!dose) return 'Dose não encontrada. Confira seu dia para consultar as doses e seus registros.';
+        const next = currentDose(state);
+        return `Muito bem! Esta dose já está registrada. ${next ? `Próximo remédio: ${next.name}, às ${clockLabel(next.scheduledAt)}.` : 'Tudo em dia por hoje.'}`;
       }
       case '/patient/day':
         return dosesForDay(state).length
-          ? 'Este é o seu dia. Aqui você pode conferir os horários e os registros dos seus remédios. Para ouvir as orientações de cada remédio, toque em Ouvir no cartão dele.'
+          ? 'Este é o seu dia. Toque em um remédio para ouvir seu horário, sua quantidade e sua situação.'
           : 'Hoje não há doses cadastradas. Peça ajuda ao cuidador se tiver alguma dúvida.';
       case '/patient/help': {
-        const caregiver = state.caregivers.find((item) => item.id === state.primaryCaregiverId);
-        return helpSent
-          ? `Seu pedido para ${caregiver.name} foi registrado.`
-          : `Este é ${caregiver.name}, seu cuidador. Toque no botão verde para pedir ajuda.`;
+        const request = state.events.find((event) => event.kind === 'help' && event.id === route.params.get('request'));
+        if (!request) return null;
+        const caregiver = request.caregiver || state.caregivers.find((item) => item.id === state.primaryCaregiverId);
+        return `Seu pedido para ${caregiver.name} foi enviado. Toque em Entendi para voltar ao remédio.`;
       }
       default:
         return null;
     }
   }
-  function doseSpeech(dose, status) {
+  function doseSpeech(dose, status, helpSent = false) {
     const period = PERIODS.find((item) => item.key === dose.period).label;
     const intro = `${dose.name}. ${period}, às ${clockLabel(dose.scheduledAt)}. Quantidade cadastrada: ${dose.quantity} ${dose.quantity === 1 ? 'comprimido' : 'comprimidos'}.`;
     if (status === 'completed')
       return `${intro} Esta dose já foi registrada. Não registre outra vez.`;
-    if (status === 'missed') return `${intro} O horário passou. Peça ajuda ao seu cuidador.`;
+    if (status === 'missed')
+      return `${intro} Passou da hora. ${helpSent ? 'Seu pedido de ajuda foi enviado.' : 'Peça ajuda ao seu cuidador.'}`;
     if (status === 'scheduled') return `${intro} O horário ainda não chegou.`;
     return `${intro} Confira a foto. Depois de tomar, toque no botão verde para registrar.`;
   }

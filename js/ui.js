@@ -37,8 +37,8 @@
     const value = STATUSES[doseStatus(dose, now)];
     return `<span class="status" style="--badge-bg:${value.background};--badge-color:${value.color}">${icon(value.icon, 17)}${value.label}</span>`;
   }
-  function photoFallback(style = '') {
-    return `<div class="medicine-photo photo-fallback" style="${style}" role="img" aria-label="Foto indisponível. Peça ajuda ao cuidador.">${icon('image-outline', 48)}<p>Foto indisponível</p></div>`;
+  function photoFallback(style = '', className = '') {
+    return `<span class="medicine-photo photo-fallback ${escape(className)}" style="${style}" role="img" aria-label="Foto indisponível. Peça ajuda ao cuidador.">${icon('image-outline', 48)}<span class="photo-fallback-label">Foto indisponível</span></span>`;
   }
   function photo(value, repository, options = {}) {
     const { height, width, label = 'Fotografia do medicamento', className = '' } = options;
@@ -46,7 +46,7 @@
     const style = `${height ? `--photo-height:${height}px;` : ''}${width ? `width:${width}px;` : ''}`;
     return source
       ? `<img class="medicine-photo ${escape(className)}" src="${escape(source)}" alt="${escape(label)}" style="${style}" data-medicine-photo />`
-      : photoFallback(style);
+      : photoFallback(style, className);
   }
   function quantity(value) {
     return `<div class="quantity"><span class="pills" aria-hidden="true">${Array.from({ length: value }, () => '<span class="pill"></span>').join('')}</span><p class="elder-text">${value} ${value === 1 ? 'comprimido' : 'comprimidos'}</p></div>`;
@@ -77,7 +77,7 @@
     return `<nav class="tabs" style="--tab-count:${navItems.length}" aria-label="Navegação do cuidador"><span class="tab-indicator" aria-hidden="true"></span>${navItems.map(([path, label, glyph]) => `<a class="nav-item" href="${path}" aria-label="${label}" ${label === 'Avisos' && unread ? 'aria-describedby="unread-count"' : ''} ${route.path === path.slice(1) ? 'aria-current="page"' : ''}>${icon(glyph)}<span>${label}</span>${label === 'Avisos' && unread ? `<span class="nav-badge" id="unread-count" aria-label="${unread} avisos novos">${unread}</span>` : ''}</a>`).join('')}</nav>`;
   }
   function screen(context, title, content, options = {}) {
-    return `<div class="screen ${options.elder ? 'elder' : ''}">${header(options)}<main class="screen-scroll" id="main-content"><div class="content"><div class="page-heading"><h1 tabindex="-1">${escape(title)}</h1>${options.subtitle ? `<p class="muted">${escape(options.subtitle)}</p>` : ''}</div>${content}</div></main>${options.footer ? `<footer class="bottom-actions"><div class="bottom-content">${options.footer}</div></footer>` : ''}${context.state.role === 'caregiver' && options.tabs !== false ? tabs(context.state, context.route) : ''}</div>`;
+    return `<div class="screen ${options.elder ? 'elder' : ''} ${escape(options.className || '')}">${header(options)}<main class="screen-scroll" id="main-content"><div class="content"><div class="${options.hideHeading ? 'sr-only' : 'page-heading'}"><h1 tabindex="-1">${escape(title)}</h1>${options.subtitle ? `<p class="muted">${escape(options.subtitle)}</p>` : ''}</div>${content}</div></main>${options.footer ? `<footer class="bottom-actions"><div class="bottom-content">${options.footer}</div></footer>` : ''}${context.state.role === 'caregiver' && options.tabs !== false ? tabs(context.state, context.route) : ''}</div>`;
   }
   function doseCard(dose, context) {
     const { state, repository, messages } = context;

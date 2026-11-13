@@ -7,7 +7,9 @@
  * @typedef {{id:string,time:string,quantity:number,period:Period}} Schedule
  * @typedef {{id:string,name:string,photo:Photo,schedules:Schedule[],effectiveFrom:string,active:boolean}} Medication
  * @typedef {{id:string,medicationId:string,scheduleId:string,day:string,scheduledAt:string,name:string,photo:Photo,quantity:number,period:Period,confirmedAt?:string,confirmedBy?:string,confirmedByName?:string,resendCount:number}} Dose
- * @typedef {{version:1,patient:{id:string,name:string,age:number},caregivers:Array<{id:string,name:string,relationship:string,photo?:string}>,primaryCaregiverId:string,activeCaregiverId:string,role:Role|null,now:string,medications:Medication[],doses:Dose[],events:Array<{id:string,kind:string,at:string,doseId?:string,title:string,detail:string,read:boolean}>}} AppState
+ * @typedef {{id:string,name:string,relationship:string,photo?:string}} Caregiver
+ * @typedef {{id:string,kind:string,at:string,doseId?:string,caregiver?:Caregiver,title:string,detail:string,read:boolean}} AppEvent
+ * @typedef {{version:1,patient:{id:string,name:string,age:number},caregivers:Caregiver[],primaryCaregiverId:string,activeCaregiverId:string,role:Role|null,now:string,medications:Medication[],doses:Dose[],events:AppEvent[]}} AppState
  */
 (function (root) {
   'use strict';
@@ -107,6 +109,14 @@
       doses.find((dose) => doseStatus(dose, state.now) === 'pending') ??
       doses.find((dose) => doseStatus(dose, state.now) === 'missed') ??
       doses.find((dose) => doseStatus(dose, state.now) === 'scheduled')
+    );
+  }
+  function helpRequest(state, doseId) {
+    return state.events.find(
+      (event) =>
+        event.kind === 'help' &&
+        event.doseId === doseId &&
+        (doseId || dayKey(event.at) === dayKey(state.now)),
     );
   }
   function generateDay(medications, existing, day) {
@@ -267,11 +277,15 @@
         );
       }
       case 'help': {
+        if (action.doseId) requireDose(state, action.doseId);
+        if (helpRequest(state, action.doseId)) return state;
         const caregiver = state.caregivers.find((item) => item.id === state.primaryCaregiverId);
         return appendEvent(state, {
           id: action.id,
           kind: 'help',
           at: state.now,
+          ...(action.doseId ? { doseId: action.doseId } : {}),
+          caregiver: { ...caregiver },
           title: `${state.patient.name} pediu ajuda`,
           detail: `Pedido direcionado a ${caregiver.name}.`,
           read: false,
@@ -438,6 +452,7 @@
     doseStatus,
     dosesForDay,
     currentDose,
+    helpRequest,
     generateDay,
     reconcile,
     validateMedication,

@@ -1,7 +1,9 @@
-/** Ionicons 7.4.0, MIT. SVGs locais, sem dependência de fonte ou CDN em execução. */
+/** Ionicons 7.4.0, MIT, e alerta geométrico local. Sem fonte ou CDN em execução. */
 (function (root) {
   'use strict';
   root.MeuRemedio.icons = {
+    'warning-outline':
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10.3 4.5a2 2 0 013.4 0l7.5 13a2 2 0 01-1.7 3h-15a2 2 0 01-1.7-3z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/><path d="M12 9v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/><circle cx="12" cy="17" r="1"/></svg>',
     'capsule-outline':
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M433.54 78.46h0a104 104 0 010 147.08l-208 208a104 104 0 01-147.08 0h0a104 104 0 010-147.08l208-208a104 104 0 01147.08 0zM175.56 175.56l160.88 160.88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/></svg>',
     'medical-outline':
