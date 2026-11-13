@@ -1183,6 +1183,11 @@ p {
   background: var(--lavender);
   color: var(--purple);
 }
+.profile-choice-emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-size: 43px;
+  line-height: 1;
+}
 .loading {
   padding: 28px;
   min-height: 100%;

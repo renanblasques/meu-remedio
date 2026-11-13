@@ -17,8 +17,8 @@
   function profiles() {
     return `<main class="profiles" id="main-content"><h1 class="sr-only" tabindex="-1">Escolha de perfil</h1><div class="profile-content">
       <div class="profile-intro"><img class="logo" src="assets/images/logo.png" alt="Meu Remédio: sol, lua e medicamentos" /></div>
-      <button class="profile-choice" type="button" data-action="choose-profile" data-id="patient">${icon('person-outline', 42)}<span>Meus remédios</span></button>
-      <button class="profile-choice caregiver" type="button" data-action="choose-profile" data-id="caregiver">${icon('people-outline', 42)}<span>Cuidar de alguém</span></button>
+      <button class="profile-choice" type="button" data-action="choose-profile" data-id="patient"><span class="profile-choice-emoji" aria-hidden="true">👴</span><span>Meus remédios</span></button>
+      <button class="profile-choice caregiver" type="button" data-action="choose-profile" data-id="caregiver"><span class="profile-choice-emoji" aria-hidden="true">👩‍⚕️</span><span>Cuidar de alguém</span></button>
     </div></main>`;
   }
   function patient(context) {
